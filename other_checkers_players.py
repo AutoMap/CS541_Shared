@@ -14,7 +14,7 @@ import numpy as np
 import random
 import time
 from typing import List, Dict, Any, Optional, Tuple
-from pydraughts import Board, Move
+from draughts import Board, Move
 
 from checkers_player_interface import AbstractCheckersPlayer, CheckersPlayerConfiguration
 
