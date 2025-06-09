@@ -205,17 +205,17 @@ py checkers_main_system.py tournament \
 
 ### Common Issues
 
-**ModuleNotFoundError: No module named 'pydraughts'**
+**ModuleNotFoundError: No module named 'draughts'**
 ```bash
 # Use the py launcher on Windows
-py -m pip install pydraughts
+py -m pip install draughts
 py checkers_main_system.py --help
 ```
 
 **Permission Errors**
 ```bash
 # Install with user flag
-pip install --user pydraughts numpy
+pip install --user draughts numpy
 ```
 ## 📄 License
 

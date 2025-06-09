@@ -15,7 +15,7 @@ Key Features:
 import numpy as np
 import time
 from typing import List, Tuple, Dict, Optional
-from pydraughts import Board, Move
+from draughts import Board, Move
 from dataclasses import dataclass
 
 
@@ -91,11 +91,11 @@ class CheckersGameEnvironment:
         """
         standardized_board_state = np.zeros((8, 8), dtype=int)
         
-        # Get internal board representation from pydraughts
+        # Get internal board representation from draughts
         internal_board_array = self.pydraughts_board.board
         current_active_player = self.pydraughts_board.whose_turn()
         
-        # Convert pydraughts 50-square representation to our 8x8 standard
+        # Convert draughts 50-square representation to our 8x8 standard
         for square_index in range(50):
             if internal_board_array[square_index] != 0:
                 row_position, column_position = self._convert_square_index_to_coordinates(square_index)
@@ -134,7 +134,7 @@ class CheckersGameEnvironment:
         Get actual Move objects for internal processing
         
         Returns:
-            List[Move]: pydraughts Move objects
+            List[Move]: draughts Move objects
         """
         return list(self.pydraughts_board.legal_moves())
     
@@ -277,8 +277,8 @@ class CheckersGameEnvironment:
     # Private helper methods
     
     def _convert_square_index_to_coordinates(self, square_index: int) -> Tuple[int, int]:
-        """Convert pydraughts square index to 8x8 coordinates"""
-        # pydraughts uses a specific numbering system for dark squares only
+        """Convert draughts square index to 8x8 coordinates"""
+        # draughts uses a specific numbering system for dark squares only
         # This conversion maps to standard 8x8 board coordinates
         row = square_index // 5
         col = (square_index % 5) * 2 + (row % 2)

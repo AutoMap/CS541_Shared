@@ -2,7 +2,7 @@
 # ========================================================
 
 # Core game engine - provides checkers rules and move validation
-pydraughts>=0.6.7
+draughts>=0.6.7
 
 # Numerical computing - for board state arrays and calculations
 numpy>=1.21.0
