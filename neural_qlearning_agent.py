@@ -49,6 +49,7 @@ class NeuralNetworkCheckersPlayer(AbstractTrainableCheckersPlayer):
         self.epsilon_decay = 0.995
         self.gamma = 0.95
         self.memory = []
+        self.max_memory_size = 10000
         self.batch_size = 64
         self.training_epochs_completed = 0
 
@@ -86,40 +87,50 @@ class NeuralNetworkCheckersPlayer(AbstractTrainableCheckersPlayer):
             self.memory.append((game_state_sequence[-1], action_sequence[-1], 
                             reward_sequence[-1], None))  # None indicates terminal state
         
+        # Limit memory size by removing oldest experiences
+        if len(self.memory) > self.max_memory_size:
+            self.memory = self.memory[-self.max_memory_size:]
+            
         # Training on batches
         if len(self.memory) >= self.batch_size:
-            minibatch = random.sample(self.memory, self.batch_size)
+            # Calculate priorities based on reward magnitude
+            priorities = np.abs([r for _, _, r, _ in self.memory]) + 0.01
+            probs = priorities / np.sum(priorities)
+            indices = np.random.choice(len(self.memory), self.batch_size, p=probs)
+            minibatch = [self.memory[i] for i in indices]
             
-            for state, action, reward, next_state in minibatch:
-                state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
-                current_q = self.model(state_tensor)[0]
-                
-                # Target Q-value
-                target_q = current_q.clone().detach()
-                
-                if next_state is not None:  # Non-terminal state
-                    next_state_tensor = torch.tensor(next_state, dtype=torch.float32).unsqueeze(0)
-                    # Get max Q-value for next state
-                    next_q_value = torch.max(self.model(next_state_tensor)).item()
-                    # Q-learning update rule
-                    target_q[action] = reward + self.gamma * next_q_value
+            # Process all samples together as tensors
+            states = torch.tensor(np.array([s for s, _, _, _ in minibatch]), dtype=torch.float32)
+            actions = torch.tensor([a for _, a, _, _ in minibatch], dtype=torch.long)
+            rewards = torch.tensor([r for _, _, r, _ in minibatch], dtype=torch.float32)
+            
+            # Create tensor of next states, replacing terminal states with zeros
+            next_states = np.array([n if n is not None else np.zeros_like(s) 
+                                  for (s, _, _, n) in minibatch])
+            next_states_tensor = torch.tensor(next_states, dtype=torch.float32)
+            
+            # Calculate target Q-values in a batch operation
+            current_q_values = self.model(states)
+            next_q_values = self.model(next_states_tensor).detach()
+            max_next_q = next_q_values.max(1)[0]
+            
+            # Create target tensor
+            target_q_values = current_q_values.clone()
+            for i in range(self.batch_size):
+                if minibatch[i][3] is not None:  # Non-terminal state
+                    target_q_values[i, actions[i]] = rewards[i] + self.gamma * max_next_q[i]
                 else:  # Terminal state
-                    target_q[action] = reward
-                
-                # Train on this sample
-                self.model.train()
-                self.optimizer.zero_grad()
-                current_q_tensor = self.model(state_tensor)
-                loss = self.loss_fn(current_q_tensor, target_q.unsqueeze(0))
-                loss.backward()
-                self.optimizer.step()
+                    target_q_values[i, actions[i]] = rewards[i]
+            
+            # Update model with a single backward pass
+            self.optimizer.zero_grad()
+            loss = self.loss_fn(current_q_values, target_q_values)
+            loss.backward()
+            self.optimizer.step()
     
     def update_after_game_completion(self, game_result_data: Dict[str, Any]) -> None:
         """
         Update player after game completion
-        
-        Args:
-            game_result_data: Dictionary containing game outcome and statistics
         """
         self.record_game_outcome(
             did_win=game_result_data.get("did_win", False),

@@ -91,23 +91,19 @@ class CheckersGameEnvironment:
         """
         standardized_board_state = np.zeros((8, 8), dtype=int)
         
-        # The draughts library has a different API than what was assumed
-        # Let's use a different approach to get the board state
         
         # Get current player
         current_active_player = self.pydraughts_board.turn
         
         # Iterate through all board positions
-        for square_idx in range(50):  # 50 valid dark squares in checkers
-            # Get the piece at this position
+        for square_idx in range(50):  
             piece = self.pydraughts_board._game.board.position_layout.get(self._convert_square_index_to_coordinates(square_idx))
             
             if piece:
                 # Convert position to row, col coordinates
                 row, col = self._convert_square_index_to_coordinates(square_idx)
                 
-                # Check if it's a king - in the draughts library kings are typically
-                # indicated by piece.is_crowned() or piece.crowned attribute
+
                 is_king = hasattr(piece, 'crowned') and piece.crowned
                 
                 # Determine if this is current player's piece or opponent's
@@ -276,12 +272,9 @@ class CheckersGameEnvironment:
         if self.is_game_finished:
             print(f"Winner: {self.winning_player_name}")
     
-    # Private helper methods
     
     def _convert_square_index_to_coordinates(self, square_index: int) -> Tuple[int, int]:
         """Convert draughts square index to 8x8 coordinates"""
-        # draughts uses a specific numbering system for dark squares only
-        # This conversion maps to standard 8x8 board coordinates
         row = square_index // 5
         col = (square_index % 5) * 2 + (row % 2)
         return row, col
@@ -315,8 +308,6 @@ class CheckersGameEnvironment:
     
     def _count_captured_pieces_this_move(self) -> int:
         """Count pieces captured in the most recent move"""
-        # This would require tracking piece count before/after move
-        # Simplified implementation for now
         return 0
     
     def _count_remaining_pieces_by_player(self) -> Dict[str, int]:

@@ -241,8 +241,8 @@ class CheckersTrainingSystem:
             legal_actions = self.game_environment.get_all_legal_action_indices()
             
             if not legal_actions:
-                break  # No legal moves available
-            
+                break
+
             chosen_action = current_player.choose_move_from_legal_actions(current_board_state, legal_actions)
             
             # Execute move and get results
@@ -285,9 +285,6 @@ class CheckersTrainingSystem:
     
     def _update_player_from_game_experience(self, trainable_player: AbstractTrainableCheckersPlayer):
         """Update trainable player based on game experience"""
-        # This would typically involve extracting the game sequence and rewards
-        # For now, we'll use the player's internal tracking
-        # In a full implementation, you'd extract the game sequence from the environment
         pass
     
     def _display_epoch_progress(self, epoch_number: int, epoch_stats: Dict, game_results: List[CheckersGameResult]):
@@ -497,7 +494,7 @@ class CheckersTournamentSystem:
     def _parse_inline_configuration(self, player_type: str, config_string: str) -> Dict[str, Any]:
         """Parse inline configuration strings like 'depth5' for minimax"""
         if player_type == 'minimax' and config_string.startswith('depth'):
-            depth = int(config_string[5:])  # Extract number after 'depth'
+            depth = int(config_string[5:])
             return {'search_depth': depth}
         else:
             return {}
