@@ -128,19 +128,19 @@ def train_neural_agent():
     config.save_progress_every_epochs = 5
     config.display_training_progress = True
 
-    print("Loading PDN for supervised pretraining...")
-    training_data = parse_pdn_to_training_data("OCA_2.1.pdn")
+    # print("Loading PDN for supervised pretraining...")
+    # training_data = parse_pdn_to_training_data("OCA_2.1.pdn")
 
-    model = DeepQNetwork()
-    supervised_pretrain(model, training_data, epochs=100)
+    # model = DeepQNetwork()
+    # supervised_pretrain(model, training_data, epochs=100)
 
-    checkpoint = {
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': torch.optim.Adam(model.parameters()).state_dict(),
-        'epsilon': 1.0,
-        'epochs_completed': 0
-    }
-    torch.save(checkpoint, "pretrained_model_weights.pt")
+    # checkpoint = {
+    #     'model_state_dict': model.state_dict(),
+    #     'optimizer_state_dict': torch.optim.Adam(model.parameters()).state_dict(),
+    #     'epsilon': 1.0,
+    #     'epochs_completed': 0
+    # }
+    # torch.save(checkpoint, "pretrained_model_weights.pt")
 
     player_config = CheckersPlayerConfiguration(
         player_type_name='neural_network',
@@ -316,7 +316,7 @@ def execute_reinforcement_training(agent, opponent, config):
                 # Check if game is over
                 if env.pydraughts_board.is_over():
                     game_over = True
-                    winner = env.pydraughts_board.get_winner()
+                    winner = env.pydraughts_board.winner()
                     
                     if winner is None:
                         # Draw
