@@ -10,6 +10,7 @@ from checkers_player_interface import CheckersPlayerConfiguration
 from draughts import Board
 from draughts.PDN import PDNReader
 import matplotlib.pyplot as plt
+from other_checkers_players import RandomCheckersPlayer
 
 
 
@@ -119,8 +120,8 @@ def train_neural_agent():
     config.discount_factor_gamma = 0.95
     config.initial_exploration_rate_epsilon = 1.0
     config.minimum_exploration_rate = 0.05
-    config.exploration_decay_amount = 0.01
-    config.exploration_decay_interval = 100
+    config.exploration_decay_amount = 0.05  # Faster decay
+    config.exploration_decay_interval = 1    # Decay every epoch
     config.number_of_training_epochs = 30
     config.games_per_training_epoch = 100
     config.training_opponent_type = 'random'
@@ -128,19 +129,19 @@ def train_neural_agent():
     config.save_progress_every_epochs = 5
     config.display_training_progress = True
 
-    # print("Loading PDN for supervised pretraining...")
-    # training_data = parse_pdn_to_training_data("OCA_2.1.pdn")
+    print("Loading PDN for supervised pretraining...")
+    training_data = parse_pdn_to_training_data("OCA_2.1.pdn")
 
-    # model = DeepQNetwork()
-    # supervised_pretrain(model, training_data, epochs=100)
+    model = DeepQNetwork()
+    supervised_pretrain(model, training_data, epochs=100)
 
-    # checkpoint = {
-    #     'model_state_dict': model.state_dict(),
-    #     'optimizer_state_dict': torch.optim.Adam(model.parameters()).state_dict(),
-    #     'epsilon': 1.0,
-    #     'epochs_completed': 0
-    # }
-    # torch.save(checkpoint, "pretrained_model_weights.pt")
+    checkpoint = {
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': torch.optim.Adam(model.parameters()).state_dict(),
+        'epsilon': 1.0,
+        'epochs_completed': 0
+    }
+    torch.save(checkpoint, "pretrained_model_weights.pt")
 
     player_config = CheckersPlayerConfiguration(
         player_type_name='neural_network',
@@ -154,7 +155,15 @@ def train_neural_agent():
 
     try:
         agent = NeuralNetworkCheckersPlayer(player_config)
-        opponent = NeuralNetworkCheckersPlayer(player_config)
+
+        # Create a separate opponent with fixed weights
+        opponent_config = CheckersPlayerConfiguration(
+            player_type_name='random',  # Use random player for consistent baseline
+            configuration_parameters={}
+        )
+        
+        opponent = RandomCheckersPlayer(opponent_config)
+
         print("Starting reinforcement training...")
         
         # Use our manual implementation instead of the training system
@@ -284,7 +293,6 @@ def execute_reinforcement_training(agent, opponent, config):
                 
                 # Execute move based on whose turn it is
                 if is_agent_turn:
-                    # Agent's turn
                     game_states.append(board_state)
                     
                     # Choose action
@@ -299,7 +307,7 @@ def execute_reinforcement_training(agent, opponent, config):
                 else:
                     # Opponent's turn
                     # Flip board perspective for opponent
-                    flipped_board = board_state * -1  # Flip perspective
+                    flipped_board = board_state * -1 
                     
                     # Let opponent choose a move
                     move_idx = opponent.choose_move_from_legal_actions(flipped_board, legal_indices)
@@ -338,22 +346,31 @@ def execute_reinforcement_training(agent, opponent, config):
             # Game complete - create reward sequence
             reward_sequence = [0.0] * (len(game_states) - 1) + [reward]
             
-            # Enhance rewards with intermediate feedback
+            # Enhance rewards with intermediate feedback (improved rewards)
             enhanced_rewards = []
             for i in range(len(game_states) - 1):
                 curr_state = game_states[i]
                 next_state = game_states[i+1]
                 
-                # Reward for capturing opponent pieces
+                # Base reward from terminal state
+                base_reward = reward_sequence[i]
+                
+                # 1. Reward for capturing opponent pieces (increased from 0.1 to 0.3)
                 curr_opp_pieces = np.sum(curr_state < 0)
                 next_opp_pieces = np.sum(next_state < 0)
                 piece_reward = 0.0
                 
                 if next_opp_pieces < curr_opp_pieces:
-                    # Captured opponent piece(s)
-                    piece_reward = 0.1 * (curr_opp_pieces - next_opp_pieces)
+                    # Captured opponent piece(s) - increased reward
+                    piece_reward = 0.3 * (curr_opp_pieces - next_opp_pieces)
                 
-                # Reward for progressing toward king row
+                # 2. Reward for getting kings (new)
+                king_reward = 0.0
+                if np.sum(next_state == 2) > np.sum(curr_state == 2):
+                    # New king created
+                    king_reward = 0.5
+                
+                # 3. Reward for progressing toward king row
                 king_progress = 0.0
                 curr_pieces_pos = np.where(curr_state == 1)
                 next_pieces_pos = np.where(next_state == 1)
@@ -365,16 +382,66 @@ def execute_reinforcement_training(agent, opponent, config):
                     if next_dist < curr_dist:
                         king_progress = 0.05
                 
-                # Combine rewards
-                enhanced_rewards.append(reward_sequence[i] + piece_reward + king_progress)
-            
-            # Add final reward
+                # 4. Penalty for losing pieces
+                piece_penalty = 0.0
+                curr_own_pieces = np.sum(curr_state > 0)
+                next_own_pieces = np.sum(next_state > 0)
+                if next_own_pieces < curr_own_pieces:
+                    piece_penalty = -0.2 * (curr_own_pieces - next_own_pieces)
+                
+                # 5. Center control reward
+                # Center squares are typically 13, 14, 17, 18, 21, 22 in a flattened 8x8 board
+                center_squares = [13, 14, 17, 18, 21, 22]
+                curr_center_control = 0
+                next_center_control = 0
+                
+                # Count your pieces in center squares
+                flat_curr = curr_state.flatten()
+                flat_next = next_state.flatten()
+                
+                for sq in center_squares:
+                    if sq < len(flat_curr) and flat_curr[sq] > 0:
+                        curr_center_control += 1
+                    if sq < len(flat_next) and flat_next[sq] > 0:
+                        next_center_control += 1
+                
+                center_reward = 0.1 * (next_center_control - curr_center_control)
+                
+                # 6. Defensive positioning reward
+                # Reward for keeping pieces at the edges of the board
+                edge_rows = [0, 7]  
+                edge_cols = [0, 7]
+                
+                curr_edge_pieces = 0
+                next_edge_pieces = 0
+                
+                # Count pieces on edges
+                for row in edge_rows:
+                    curr_edge_pieces += np.sum(curr_state[row, :] > 0)
+                    next_edge_pieces += np.sum(next_state[row, :] > 0)
+                
+                for col in edge_cols:
+                    curr_edge_pieces += np.sum(curr_state[:, col] > 0)
+                    next_edge_pieces += np.sum(next_state[:, col] > 0)
+                
+                edge_reward = 0.05 * (next_edge_pieces - curr_edge_pieces)
+                
+                # 7. Mobility reward
+                # More legal moves is better
+                mobility_reward = 0.0
+                # We don't have direct access to number of legal moves here, 
+                # but we could approximate by counting empty adjacent squares
+                
+                # Combine all rewards
+                total_reward = base_reward + piece_reward + king_reward + king_progress + \
+                              piece_penalty + center_reward + edge_reward
+                
+                enhanced_rewards.append(total_reward)
+
             enhanced_rewards.append(reward_sequence[-1])
             
-            # Update agent using experience
             agent.update_from_game_experience(game_states, game_actions, enhanced_rewards)
             
-            # Notify agent about game completion
             agent.update_after_game_completion({
                 "did_win": epoch_stats['games_won'] > 0 and game == config.games_per_training_epoch,
                 "was_draw": epoch_stats['games_drawn'] > 0 and game == config.games_per_training_epoch
@@ -393,10 +460,8 @@ def execute_reinforcement_training(agent, opponent, config):
             agent.save_trained_model_to_file(save_path)
             print(f"  Model saved to {save_path}")
         
-        # Update epoch results
         epoch_results.append(epoch_stats)
         
-        # Notify agent about epoch completion
         agent.complete_training_epoch()
         
         # Decay exploration rate if needed
