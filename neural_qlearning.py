@@ -154,9 +154,11 @@ def train_neural_agent():
 
     try:
         agent = NeuralNetworkCheckersPlayer(player_config)
+        opponent = NeuralNetworkCheckersPlayer(player_config)
         print("Starting reinforcement training...")
-        training_system = CheckersTrainingSystem(config)
-        training_results = training_system.execute_qlearning_training_session()
+        
+        # Use our manual implementation instead of the training system
+        training_results = execute_reinforcement_training(agent, opponent, config)
         
         # Extract performance metrics from training results
         epochs = []
@@ -209,6 +211,209 @@ def train_neural_agent():
         import traceback
         traceback.print_exc()
 
+def execute_reinforcement_training(agent, opponent, config):
+    """
+    Manually implement reinforcement learning for checkers
+    
+    Args:
+        agent: NeuralNetworkCheckersPlayer agent
+        config: Training configuration
+    
+    Returns:
+        Training results dictionary
+    """
+    print("Starting manual reinforcement learning implementation...")
+    
+    # Create environment
+    env = CheckersGameEnvironment()
+    
+    # Training stats
+    epoch_results = []
+    
+    for epoch in range(1, config.number_of_training_epochs + 1):
+        print(f"Starting epoch {epoch}/{config.number_of_training_epochs}")
+        
+        # Initialize epoch statistics
+        epoch_stats = {
+            'epoch_number': epoch,
+            'games_won': 0,
+            'games_lost': 0,
+            'games_drawn': 0,
+            'exploration_rate': agent.epsilon
+        }
+        
+        # Play games for this epoch
+        for game in range(1, config.games_per_training_epoch + 1):
+            if game % 10 == 0:
+                print(f"  Playing game {game}/{config.games_per_training_epoch}")
+            
+            # Reset environment
+            env.reset_game_to_initial_state()
+            
+            # Decide who goes first (alternate)
+            agent_plays_first = game % 2 == 1
+            
+            # Track game states and actions
+            game_states = []
+            game_actions = []
+            
+            # Play until game is finished
+            current_player = 0  # 0 = first player, 1 = second player
+            game_over = False
+            
+            while not game_over:
+                # Get current board state
+                board_state = env.get_current_board_state()
+                
+                # Determine which player's turn it is
+                is_agent_turn = (agent_plays_first and current_player == 0) or \
+                               (not agent_plays_first and current_player == 1)
+                
+                # Get legal moves
+                legal_moves = list(enumerate(env.pydraughts_board.legal_moves()))
+                legal_indices = [idx for idx, _ in legal_moves]
+                
+                if not legal_moves:
+                    # No legal moves, current player loses
+                    game_over = True
+                    if is_agent_turn:
+                        epoch_stats['games_lost'] += 1
+                    else:
+                        epoch_stats['games_won'] += 1
+                    break
+                
+                # Execute move based on whose turn it is
+                if is_agent_turn:
+                    # Agent's turn
+                    game_states.append(board_state)
+                    
+                    # Choose action
+                    action_idx = agent.choose_move_from_legal_actions(board_state, legal_indices)
+                    game_actions.append(action_idx)
+                    
+                    # Find the actual move
+                    for idx, move in legal_moves:
+                        if idx == action_idx:
+                            chosen_move = move
+                            break
+                else:
+                    # Opponent's turn
+                    # Flip board perspective for opponent
+                    flipped_board = board_state * -1  # Flip perspective
+                    
+                    # Let opponent choose a move
+                    move_idx = opponent.choose_move_from_legal_actions(flipped_board, legal_indices)
+                    
+                    # Find the actual move
+                    for idx, move in legal_moves:
+                        if idx == move_idx:
+                            chosen_move = move
+                            break
+                
+                # Execute the move
+                env.pydraughts_board.push(chosen_move)
+                
+                # Check if game is over
+                if env.pydraughts_board.is_over():
+                    game_over = True
+                    winner = env.pydraughts_board.get_winner()
+                    
+                    if winner is None:
+                        # Draw
+                        epoch_stats['games_drawn'] += 1
+                        reward = 0.0
+                    elif (winner == 0 and agent_plays_first) or (winner == 1 and not agent_plays_first):
+                        # Agent won
+                        epoch_stats['games_won'] += 1
+                        reward = 1.0
+                    else:
+                        # Agent lost
+                        epoch_stats['games_lost'] += 1
+                        reward = -1.0
+                else:
+                    # Game continues, switch player
+                    current_player = 1 - current_player
+                    reward = 0.0  # No reward for non-terminal states
+            
+            # Game complete - create reward sequence
+            reward_sequence = [0.0] * (len(game_states) - 1) + [reward]
+            
+            # Enhance rewards with intermediate feedback
+            enhanced_rewards = []
+            for i in range(len(game_states) - 1):
+                curr_state = game_states[i]
+                next_state = game_states[i+1]
+                
+                # Reward for capturing opponent pieces
+                curr_opp_pieces = np.sum(curr_state < 0)
+                next_opp_pieces = np.sum(next_state < 0)
+                piece_reward = 0.0
+                
+                if next_opp_pieces < curr_opp_pieces:
+                    # Captured opponent piece(s)
+                    piece_reward = 0.1 * (curr_opp_pieces - next_opp_pieces)
+                
+                # Reward for progressing toward king row
+                king_progress = 0.0
+                curr_pieces_pos = np.where(curr_state == 1)
+                next_pieces_pos = np.where(next_state == 1)
+                
+                if len(curr_pieces_pos[0]) > 0 and len(next_pieces_pos[0]) > 0:
+                    # Calculate average distance to king row
+                    curr_dist = np.mean(curr_pieces_pos[0])  # Row 0 is king row
+                    next_dist = np.mean(next_pieces_pos[0])
+                    if next_dist < curr_dist:
+                        king_progress = 0.05
+                
+                # Combine rewards
+                enhanced_rewards.append(reward_sequence[i] + piece_reward + king_progress)
+            
+            # Add final reward
+            enhanced_rewards.append(reward_sequence[-1])
+            
+            # Update agent using experience
+            agent.update_from_game_experience(game_states, game_actions, enhanced_rewards)
+            
+            # Notify agent about game completion
+            agent.update_after_game_completion({
+                "did_win": epoch_stats['games_won'] > 0 and game == config.games_per_training_epoch,
+                "was_draw": epoch_stats['games_drawn'] > 0 and game == config.games_per_training_epoch
+            })
+        
+        # End of epoch
+        print(f"Epoch {epoch} results:")
+        print(f"  Win rate: {epoch_stats['games_won'] / config.games_per_training_epoch:.2f}")
+        print(f"  Loss rate: {epoch_stats['games_lost'] / config.games_per_training_epoch:.2f}")
+        print(f"  Draw rate: {epoch_stats['games_drawn'] / config.games_per_training_epoch:.2f}")
+        print(f"  Exploration rate: {agent.epsilon:.4f}")
+        
+        # Save model periodically
+        if epoch % config.save_progress_every_epochs == 0:
+            save_path = f"reinforcement_model_epoch_{epoch}.pt"
+            agent.save_trained_model_to_file(save_path)
+            print(f"  Model saved to {save_path}")
+        
+        # Update epoch results
+        epoch_results.append(epoch_stats)
+        
+        # Notify agent about epoch completion
+        agent.complete_training_epoch()
+        
+        # Decay exploration rate if needed
+        if epoch % config.exploration_decay_interval == 0:
+            agent.epsilon = max(
+                config.minimum_exploration_rate, 
+                agent.epsilon - config.exploration_decay_amount
+            )
+    
+    # Save final model
+    agent.save_trained_model_to_file(config.output_model_file_path)
+    
+    # Return results
+    return {
+        'epoch_results': epoch_results,
+        'final_model_path': config.output_model_file_path
+    }
 
 if __name__ == '__main__':
     train_neural_agent()
