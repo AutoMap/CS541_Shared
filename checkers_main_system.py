@@ -37,10 +37,10 @@ from datetime import datetime
 from checkers_game_environment import CheckersGameEnvironment, CheckersGameResult
 from checkers_player_interface import AbstractCheckersPlayer, AbstractTrainableCheckersPlayer
 from qlearning_checkers_player import QLearningCheckersPlayer
-from other_checkers_players import (MinimaxAlphaBetaCheckersPlayer, RandomCheckersPlayer, 
-                                  HumanCheckersPlayer, create_player_from_configuration)
+from other_checkers_players import (create_player_from_configuration)
 from checkers_training_configuration import (CheckersConfigurationManager, QLearningTrainingConfiguration,
-                                           TournamentConfiguration, PlaySessionConfiguration)
+                                           TournamentConfiguration)
+from neural_qlearning_agent import NeuralNetworkCheckersPlayer
 
 
 class CheckersTrainingSystem:
@@ -82,7 +82,12 @@ class CheckersTrainingSystem:
         self.training_start_timestamp = time.time()
         
         # Create Q-Learning player
-        qlearning_player = self._create_qlearning_player_from_config()
+        if self.training_config.player_type_name == 'qlearning':
+            qlearning_player = self._create_qlearning_player_from_config()
+        elif self.training_config.player_type_name == 'neural_network':
+            qlearning_player = self._create_neural_network_player_from_config()
+        else:
+            raise ValueError("Unsupported training player type.")
         
         # Create training opponent
         training_opponent = self._create_training_opponent()
@@ -150,18 +155,31 @@ class CheckersTrainingSystem:
         player_config = CheckersPlayerConfiguration(
             player_type_name='qlearning',
             configuration_parameters={
-                'learning_rate': self.training_config.learning_rate_alpha,
-                'discount_factor': self.training_config.discount_factor_gamma,
-                'initial_exploration_rate': self.training_config.initial_exploration_rate_epsilon,
-                'exploration_decay_amount': self.training_config.exploration_decay_amount,
-                'exploration_decay_interval': self.training_config.exploration_decay_interval,
-                'minimum_exploration_rate': self.training_config.minimum_exploration_rate
+                'learning_rate_alpha': self.training_config.learning_rate_alpha,
+                'discount_factor_gamma': self.training_config.discount_factor_gamma,
+                'exploration_rate_epsilon': self.training_config.initial_exploration_rate_epsilon,
+                'exploration_rate_min': self.training_config.minimum_exploration_rate
             },
             model_file_path=self.training_config.input_model_file_path,
             creation_timestamp=datetime.now().isoformat()
         )
         
         return QLearningCheckersPlayer(player_config)
+    
+    def _create_neural_network_player_from_config(self) -> AbstractTrainableCheckersPlayer:
+        from checkers_player_interface import CheckersPlayerConfiguration
+
+        player_config = CheckersPlayerConfiguration(
+            player_type_name='neural_network',
+            configuration_parameters={
+                'learning_rate': 0.001,
+                'discount_factor': self.training_config.discount_factor_gamma,
+                'exploration_rate': self.training_config.initial_exploration_rate_epsilon
+            },
+            model_file_path=self.training_config.input_model_file_path,
+            creation_timestamp=datetime.now().isoformat()
+        )
+        return NeuralNetworkCheckersPlayer(player_config)
     
     def _create_training_opponent(self) -> AbstractCheckersPlayer:
         """Create appropriate training opponent based on configuration"""
@@ -178,7 +196,7 @@ class CheckersTrainingSystem:
         else:
             raise ValueError(f"Unknown training opponent type: {opponent_type}")
     
-    def _execute_training_epoch(self, learning_player: QLearningCheckersPlayer, 
+    def _execute_training_epoch(self, learning_player: AbstractTrainableCheckersPlayer, 
                                opponent_player: AbstractCheckersPlayer) -> List[CheckersGameResult]:
         """Execute all games for a single training epoch"""
         epoch_game_results = []
@@ -187,8 +205,8 @@ class CheckersTrainingSystem:
             # Alternate starting player
             if game_number % 2 == 0:
                 player_one, player_two = learning_player, opponent_player
-            else:
-                player_one, player_two = opponent_player, learning_player
+            # else:
+            #     player_one, player_two = opponent_player, learning_player
             
             # Play single game
             game_result = self._play_single_training_game(player_one, player_two)
@@ -202,8 +220,8 @@ class CheckersTrainingSystem:
         
         return epoch_game_results
     
-    def _play_single_training_game(self, player_one: AbstractCheckersPlayer, 
-                                  player_two: AbstractCheckersPlayer) -> CheckersGameResult:
+    def _play_single_training_game(self, player_one, 
+                                  player_two) -> CheckersGameResult:
         """Play a single game between two players"""
         # Reset environment for new game
         current_board_state = self.game_environment.reset_game_to_initial_state()
