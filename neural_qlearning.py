@@ -14,11 +14,14 @@ from other_checkers_players import RandomCheckersPlayer
 
 
 
+# Create a single global environment for reuse
+global_env = CheckersGameEnvironment()
+
 def convert_board_to_tensor(board):
-    """Convert a draughts board to a tensor representation"""
-    env = CheckersGameEnvironment()
-    env.pydraughts_board = board
-    return env.get_current_board_state().astype(np.float32)
+    """Efficient board conversion using global environment"""
+    global global_env
+    global_env.pydraughts_board = board
+    return global_env.get_current_board_state().astype(np.float32)
 
 def parse_pdn_to_training_data(pdn_path):
     """Parse a PDN file into training data for supervised pretraining of the Q-network"""
@@ -133,7 +136,7 @@ def train_neural_agent():
     training_data = parse_pdn_to_training_data("OCA_2.1.pdn")
 
     model = DeepQNetwork()
-    supervised_pretrain(model, training_data, epochs=100)
+    supervised_pretrain(model, training_data, epochs=30)
 
     checkpoint = {
         'model_state_dict': model.state_dict(),

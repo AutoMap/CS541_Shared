@@ -44,7 +44,7 @@ class NeuralNetworkCheckersPlayer(AbstractTrainableCheckersPlayer):
         self.model = DeepQNetwork()
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         self.loss_fn = nn.MSELoss()
-        self.epsilon = 0.9
+        self.epsilon = 0.1
         self.epsilon_min = 0.05
         self.epsilon_decay = 0.995
         self.gamma = 0.95
@@ -52,6 +52,12 @@ class NeuralNetworkCheckersPlayer(AbstractTrainableCheckersPlayer):
         self.max_memory_size = 10000
         self.batch_size = 64
         self.training_epochs_completed = 0
+
+        # Add target network
+        self.target_model = DeepQNetwork()
+        self.target_model.load_state_dict(self.model.state_dict())
+        self.target_update_frequency = 5  # Update every 5 games
+        self.games_played = 0
 
         if player_configuration.model_file_path:
             self.load_trained_model_from_file(player_configuration.model_file_path)
@@ -111,7 +117,7 @@ class NeuralNetworkCheckersPlayer(AbstractTrainableCheckersPlayer):
             
             # Calculate target Q-values in a batch operation
             current_q_values = self.model(states)
-            next_q_values = self.model(next_states_tensor).detach()
+            next_q_values = self.target_model(next_states_tensor).detach()
             max_next_q = next_q_values.max(1)[0]
             
             # Create target tensor
@@ -138,6 +144,11 @@ class NeuralNetworkCheckersPlayer(AbstractTrainableCheckersPlayer):
             additional_game_data=game_result_data
         )
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
+
+        # Update target network periodically
+        self.games_played += 1
+        if self.games_played % self.target_update_frequency == 0:
+            self.target_model.load_state_dict(self.model.state_dict())
 
     def save_trained_model_to_file(self, file_path: str) -> None:
         """Save model to file"""
