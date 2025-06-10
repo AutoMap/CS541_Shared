@@ -219,14 +219,17 @@ def create_player_from_configuration(player_type: str, configuration_params: Dic
         creation_timestamp=time.strftime("%Y-%m-%d %H:%M:%S")
     )
     
-    if player_type == 'minimax':
-        return MinimaxAlphaBetaCheckersPlayer(player_config)
-    elif player_type == 'random':
+    # if player_type == 'minimax':
+    #     return MinimaxAlphaBetaCheckersPlayer(player_config)
+    if player_type == 'random':
         return RandomCheckersPlayer(player_config)
     elif player_type == 'human':
         return HumanCheckersPlayer(player_config)
     elif player_type == 'qlearning':
         from qlearning_checkers_player import QLearningCheckersPlayer
         return QLearningCheckersPlayer(player_config)
+    elif player_type == 'neural_network':
+        from neural_qlearning_agent import NeuralNetworkCheckersPlayer
+        return NeuralNetworkCheckersPlayer(player_config)
     else:
         raise ValueError(f"Unknown player type: {player_type}")

@@ -91,31 +91,33 @@ class CheckersGameEnvironment:
         """
         standardized_board_state = np.zeros((8, 8), dtype=int)
         
-        # Get internal board representation from draughts
-        internal_board_array = self.pydraughts_board.board
-        current_active_player = self.pydraughts_board.whose_turn()
+        # The draughts library has a different API than what was assumed
+        # Let's use a different approach to get the board state
         
-        # Convert draughts 50-square representation to our 8x8 standard
-        for square_index in range(50):
-            if internal_board_array[square_index] != 0:
-                row_position, column_position = self._convert_square_index_to_coordinates(square_index)
-                piece_type_value = internal_board_array[square_index]
+        # Get current player
+        current_active_player = self.pydraughts_board.turn
+        
+        # Iterate through all board positions
+        for square_idx in range(50):  # 50 valid dark squares in checkers
+            # Get the piece at this position
+            piece = self.pydraughts_board._game.board.position_layout.get(self._convert_square_index_to_coordinates(square_idx))
+            
+            if piece:
+                # Convert position to row, col coordinates
+                row, col = self._convert_square_index_to_coordinates(square_idx)
                 
-                # Determine if this piece belongs to current player or opponent
-                if piece_type_value > 0:  # White pieces (positive values)
-                    if current_active_player == 1:  # White player's turn
-                        # This is current player's piece
-                        standardized_board_state[row_position, column_position] = 2 if piece_type_value == 3 else 1
-                    else:
-                        # This is opponent's piece
-                        standardized_board_state[row_position, column_position] = -2 if piece_type_value == 3 else -1
-                else:  # Black pieces (negative values)
-                    if current_active_player == 2:  # Black player's turn
-                        # This is current player's piece
-                        standardized_board_state[row_position, column_position] = 2 if piece_type_value == -3 else 1
-                    else:
-                        # This is opponent's piece
-                        standardized_board_state[row_position, column_position] = -2 if piece_type_value == -3 else -1
+                # Check if it's a king - in the draughts library kings are typically
+                # indicated by piece.is_crowned() or piece.crowned attribute
+                is_king = hasattr(piece, 'crowned') and piece.crowned
+                
+                # Determine if this is current player's piece or opponent's
+                if (current_active_player == 1) or \
+                   (current_active_player == 2):
+                    # This is current player's piece
+                    standardized_board_state[row, col] = 2 if is_king else 1
+                else:
+                    # This is opponent's piece
+                    standardized_board_state[row, col] = -2 if is_king else -1
         
         return standardized_board_state
     
@@ -166,7 +168,7 @@ class CheckersGameEnvironment:
         if self.enable_detailed_logging:
             self.move_history_list.append({
                 'move_number': self.total_moves_played + 1,
-                'player': self.pydraughts_board.whose_turn(),
+                'player': self.pydraughts_board.turn,
                 'move_object': selected_move,
                 'timestamp': time.time() - self.game_start_timestamp
             })
@@ -187,7 +189,7 @@ class CheckersGameEnvironment:
             'move_notation': str(selected_move),
             'moves_played': self.total_moves_played,
             'captured_pieces': self._count_captured_pieces_this_move(),
-            'current_player': self.pydraughts_board.whose_turn() if not self.is_game_finished else None
+            'current_player': self.pydraughts_board.turn if not self.is_game_finished else None
         }
         
         next_board_state = self.get_current_board_state()
@@ -201,7 +203,7 @@ class CheckersGameEnvironment:
         Returns:
             int: Current player identifier
         """
-        return self.pydraughts_board.whose_turn()
+        return self.pydraughts_board.turn
     
     def create_game_result_summary(self, player_one_name: str, player_two_name: str, 
                                  player_one_config: Optional[Dict] = None,
@@ -303,7 +305,7 @@ class CheckersGameEnvironment:
         if not self.is_game_finished:
             return None
         
-        result = self.pydraughts_board.result()
+        result = self.pydraughts_board.winner()
         if result == "1-0":
             return "player_one"  # White wins
         elif result == "0-1":

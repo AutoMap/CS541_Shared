@@ -7,11 +7,10 @@ This defines the standard interface that all AI implementations must follow.
 
 This is the KEY INTERFACE that neural network students must implement!
 """
-
-import numpy as np
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+import numpy as np
 
 
 @dataclass
@@ -235,95 +234,3 @@ class AbstractTrainableCheckersPlayer(AbstractCheckersPlayer):
             Dict: Training metrics like learning rate, epochs completed, etc.
         """
         pass
-
-
-# Neural Network Interface Example for Students
-class ExampleNeuralNetworkPlayerTemplate(AbstractTrainableCheckersPlayer):
-    """
-    TEMPLATE CLASS for neural network students to implement
-    
-    This shows exactly what methods need to be implemented and how to structure
-    a neural network player that fits into our system.
-    
-    Students should copy this template and fill in their neural network implementation!
-    """
-    
-    def __init__(self, player_configuration: CheckersPlayerConfiguration):
-        super().__init__(player_configuration)
-        
-        # Neural network students should initialize their network here
-        self.neural_network_model = None  # TODO: Initialize your neural network
-        self.training_optimizer = None    # TODO: Initialize your optimizer
-        self.loss_function = None         # TODO: Initialize your loss function
-        
-        # Load pre-trained model if specified
-        if player_configuration.model_file_path:
-            self.load_trained_model_from_file(player_configuration.model_file_path)
-    
-    def choose_move_from_legal_actions(self, current_board_state: np.ndarray, 
-                                     available_legal_actions: List[int]) -> int:
-        """
-        STUDENTS IMPLEMENT THIS: Use your neural network to choose the best move
-        
-        Example approach:
-        1. Pass current_board_state through your neural network
-        2. Get action probabilities or Q-values for all possible actions  
-        3. Filter to only consider available_legal_actions
-        4. Return the action index with highest probability/value
-        """
-        # TODO: Neural network students implement this method
-        
-        # PLACEHOLDER: Random choice (students should replace this!)
-        import random
-        return random.choice(available_legal_actions)
-    
-    def update_from_game_experience(self, game_state_sequence: List[np.ndarray],
-                                  action_sequence: List[int],
-                                  reward_sequence: List[float]) -> None:
-        """
-        STUDENTS IMPLEMENT THIS: Train your neural network using game experience
-        
-        Example approach:
-        1. Create training data from the game sequences
-        2. Calculate target values using rewards
-        3. Train your network using backpropagation
-        4. Update network weights
-        """
-        # TODO: Neural network students implement this method
-        pass
-    
-    def update_after_game_completion(self, game_result_data: Dict[str, Any]) -> None:
-        """Update any final statistics or learning parameters"""
-        # Record game outcome for statistics
-        did_win = game_result_data.get('did_win', False)
-        was_draw = game_result_data.get('was_draw', False)
-        self.record_game_outcome(did_win, was_draw, game_result_data)
-    
-    def save_trained_model_to_file(self, file_path: str) -> None:
-        """
-        STUDENTS IMPLEMENT THIS: Save your trained neural network
-        
-        Example approaches:
-        - PyTorch: torch.save(model.state_dict(), file_path)
-        - TensorFlow: model.save(file_path)
-        - Pickle: pickle.dump(model, open(file_path, 'wb'))
-        """
-        # TODO: Neural network students implement this method
-        pass
-    
-    def load_trained_model_from_file(self, file_path: str) -> None:
-        """
-        STUDENTS IMPLEMENT THIS: Load a previously trained neural network
-        """
-        # TODO: Neural network students implement this method
-        pass
-    
-    def get_training_progress_statistics(self) -> Dict[str, Any]:
-        """Return training statistics for analysis"""
-        return {
-            'model_type': 'neural_network',
-            'training_epochs_completed': 0,  # TODO: Track actual epochs
-            'current_learning_rate': 0.001,  # TODO: Return actual learning rate
-            'loss_history': [],  # TODO: Track loss during training
-            'games_used_for_training': self.total_games_played
-        }
