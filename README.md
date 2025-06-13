@@ -1,0 +1,7 @@
+Introduction 
+The goal of our group project was to develop three different A.I. models that can play against each other in checkers. The three models were a classical Q-learning agent that uses a Q table to track state-action pair values, a deep Q-learning agent that uses a neural network to map input states to a state-action pair, and an alpha-beta pruning search algorithm. Checkers, also known as draughts, is a two-player board game that involves moving uniform game pieces forward and capturing opponent pieces by jumping over them. Although A.I. “beat” checkers decades ago, with early programs beating the then world champion in 1967, this project was a good opportunity to apply concepts learned in class to the popular board game. 
+
+Methods
+The code for this project was written in Python. We used a library called Pydraughts that simplified (to some extent) the implementation of our models. The Pydraughts library has classes like Game and Board that contain useful methods such as is_over() or get_possible_moves(); this allows us to focus more on the model logic and not worry about the game itself. Due to time constraints and complexities we were unable to implement our individual models into one framework, so instead of  testing the models against each other we tested them with self-play and a random-choosing agent, and then compared those results among the three models. 
+
+Note that the separate Q-Learner is in its own directory off of this directory
