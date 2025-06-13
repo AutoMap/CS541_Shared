@@ -22,26 +22,17 @@ The program accepts one of the following **positional arguments** to determine i
 
 Examples:
   # Quick training with defaults (recommended for first try)
-  python checkers_main.py train --quick
+  python checkers_main.py "qlearning" random --games-per-epoch 10 --epochs 3
 
-  # Custom training parameters
-  python checkers_main.py train --learning-rate 0.2 --number-of-epochs 100
+  # Custom training parameters using .json files with q-states from previous play
+  python checkers_main.py        "qlearning[in=e.1-t139000.json,out=e.1-t159000.json,lr=0.03,epsilon=0.1,epsilon_decay=0.00005]" qlearning[in=t27000.json,lr=0,epsilon=0.15,epsilon_decay=0] --epochs 100 --games-per-epoch 200
 
-  # Run tournament
-  python checkers_main.py tournament --tournament-players random:default minimax:depth3
-
-  # Play against trained AI
-  python checkers_main.py play --ai-opponent qlearning --ai-model-path qlearning_model.json
-
-py checkers_main.py -help
-usage: checkers_main.py [-n TOTAL_GAMES] [--epochs EPOCHS] [--games-per-epoch GAMES_PER_EPOCH] [--train] [-h]
-                        player1 player2
 
 English-draughts (8 × 8) tournament / training runner
 ====================================================
 
 This script lets you pit any two agents against each other
-(**random**, **minimax**, or **Q-learning**) **and** drive Q-learning
+(**random** or **Q-learning**) **and** drive Q-learning
 training runs in an “epochs × games-per-epoch” style.
 
 
@@ -50,7 +41,6 @@ training runs in an “epochs × games-per-epoch” style.
 Each positional argument (**player1**, **player2**) is a *player-spec* string:
 
     random
-    minimax[depth=6]
     qlearning[
         in=my_start.json,
         out=my_end.json,
@@ -97,18 +87,16 @@ Each positional argument (**player1**, **player2**) is a *player-spec* string:
 
 **EXAMPLES**
 
-➊ Evaluate – minimax depth-4 vs random, 10 games
-   python checkers_main.py minimax[depth=4] random -n 10
 
-➋ **Train** a learner for 1 000 games (10 × 100) and save
+ **Train** a learner for 1 000 games (10 × 100) and save
+ 
    python checkers_main.py        "qlearning[out=q1000.json,lr=0.25,epsilon=0.9]"        random        --epochs 10 --games-per-epoch 100 --train
 
-➌ Continue training with a lower ε
+ Continue training with a lower ε
+ 
    python checkers_main.py        "qlearning[in=q1000.json,out=q2000.json,epsilon=0.5]"        random        -n 1000 --train
 
-positional arguments:
-  player1               first player-spec
-  player2               second player-spec
+
 
 ### Training Workflow Overview
 
