@@ -1,0 +1,25 @@
+# Checkers AI Training and Competition System Dependencies
+# ========================================================
+
+# Core game engine - provides checkers rules and move validation
+draughts>=0.6.7
+
+# Numerical computing - for board state arrays and calculations
+numpy>=1.21.0
+
+# Standard library modules (included with Python, listed for reference):
+# - json (for model serialization)
+# - time (for timing and timestamps)
+# - random (for random player and exploration)
+# - argparse (for command-line interface)
+# - abc (for abstract base classes)
+# - dataclasses (for configuration structures)
+# - typing (for type hints)
+# - datetime (for timestamps)
+# - collections (for defaultdict in Q-learning)
+# - tkinter (for GUI - usually included with Python)
+
+# Optional dependencies for enhanced functionality:
+# matplotlib>=3.5.0  # Uncomment for training progress plots
+# pandas>=1.3.0      # Uncomment for advanced data analysis
+# scipy>=1.7.0       # Uncomment for statistical analysis of results
